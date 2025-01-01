@@ -1,0 +1,23 @@
+{
+  "name": "club-management-system",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "cd frontend && npm start",
+    "dev": "nodemon backend/index.js",
+    "both": "concurrently \"npm run start-frontend\" \"npm run start-backend\"",
+    "start-frontend": "cd frontend && npm start",
+    "start-backend": "nodemon backend/index.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "concurrently": "^9.1.2",
+    "dotenv": "^16.4.7",
+    "react-icons": "^5.4.0",
+    "stripe": "^17.7.0"
+  }
+}

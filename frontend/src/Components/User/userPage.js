@@ -1,34 +1,82 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useGetsingleClubQuery, useRegisteruserinClubMutation } from "../../Redux/services/api/clubapi";
-import { useGetAllEventsQuery, useRegisterEventMutation } from "../../Redux/services/api/eventapi";
-import { useGetAllPackagesQuery } from "../../Redux/services/api/packagesapi";
+import axios from "axios";
+import {
+  useGetsingleClubQuery,
+  useRegisteruserinClubMutation,
+} from "../../Redux/services/api/clubapi";
+import {
+  useGetAllEventsQuery,
+  useRegisterEventMutation,
+} from "../../Redux/services/api/eventapi";
 import { FaCalendarAlt, FaUsers, FaChartLine, FaIdBadge, FaStar, FaCrown } from "react-icons/fa";
-import UserOptions from "../Layout/speedDial";
 import MenuIcon from "./MenuIcon";
 
 const UserLandingPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
 
-    // Modal State
-    const [isModalOpen, setIsModalOpen] = useState(false);
-    const [selectedEvent, setSelectedEvent] = useState(null);
+  console.log("UserLandingPage: Extracted clubId from useParams:", id); // Debug log
+
+  // Modal State
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedEvent, setSelectedEvent] = useState(null);
+
+  // State for packages
+  const [packages, setPackages] = useState([]);
+  const [packagesLoading, setPackagesLoading] = useState(false);
+  const [packagesError, setPackagesError] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
 
   // Fetch club details
-  const { data: clubData, isLoading: clubLoading, isError: clubError } = useGetsingleClubQuery(id);
-  const { data: packagesData, isLoading: packagesLoading, isError: packagesError } = useGetAllPackagesQuery();
-  const packages = Array.isArray(packagesData) ? packagesData : [];
+  const { data: clubData, isLoading: clubLoading, isError: clubError } =
+    useGetsingleClubQuery(id);
+
+  // Fetch events
+  const { data: eventsData, isLoading: eventsLoading, isError: eventsError } =
+    useGetAllEventsQuery(id);
+
+  const events = eventsData?.events || [];
+  const club = clubData || {};
 
   const userId = JSON.parse(localStorage.getItem("user"))?._id;
 
   const [registeruser] = useRegisteruserinClubMutation();
+  const [registerEvent] = useRegisterEventMutation();
 
- // Fetch events
- const { data: eventsData, isLoading: eventsLoading, isError: eventsError } = useGetAllEventsQuery(id);
- const events = eventsData?.events || [];
- const club = clubData || {}; // ✅ Ensuring it's an object
-const [registerEvent]=useRegisterEventMutation();
+  // Fetch packages using Axios
+  useEffect(() => {
+    const fetchPackages = async () => {
+      if (!id || id === "undefined" || typeof id !== "string" || id.trim() === "") {
+        console.warn("UserLandingPage: Invalid or undefined clubId, skipping fetch:", id);
+        setPackagesError(true);
+        setErrorMessage("Invalid or missing Club ID");
+        return;
+      }
+
+      setPackagesLoading(true);
+      try {
+        console.log("UserLandingPage: Sending Axios request with clubId:", id);
+        const response = await axios.get(
+          `http://localhost:4000/api/packages/getAllPackages/${id}`
+        );
+        console.log("UserLandingPage: Fetched packages:", response.data);
+        setPackages(response.data || []); // Adjust based on API response structure
+        setPackagesError(false);
+        setErrorMessage("");
+      } catch (error) {
+        console.error("UserLandingPage: Error fetching packages:", error);
+        setPackagesError(true);
+        setErrorMessage(
+          error.response?.data?.message || "Failed to fetch packages. Please try again."
+        );
+      } finally {
+        setPackagesLoading(false);
+      }
+    };
+
+    fetchPackages();
+  }, [id]);
 
   const handleGetStarted = async () => {
     if (!userId) {
@@ -37,7 +85,9 @@ const [registerEvent]=useRegisterEventMutation();
       return;
     }
 
-    const confirmRegistration = window.confirm("Are you sure you want to register in this club?");
+    const confirmRegistration = window.confirm(
+      "Are you sure you want to register in this club?"
+    );
     if (!confirmRegistration) return;
 
     try {
@@ -54,10 +104,10 @@ const [registerEvent]=useRegisterEventMutation();
       navigate("/login");
       return;
     }
-   navigate("subscription", { state: { selectedPackage: pkg } });
+    navigate("subscription", { state: { selectedPackage: pkg } });
   };
 
-   // Open Modal and Set Event
+  // Open Modal and Set Event
   const openModal = (event) => {
     setSelectedEvent(event);
     setIsModalOpen(true);
@@ -80,7 +130,7 @@ const [registerEvent]=useRegisterEventMutation();
     try {
       await registerEvent({ eventId: selectedEvent._id, userId }).unwrap();
       alert("Successfully registered for the event!");
-      closeModal(); // Close modal on success
+      closeModal();
     } catch (error) {
       alert(`Error: ${error?.data?.message || "Registration failed"}`);
     }
@@ -104,16 +154,34 @@ const [registerEvent]=useRegisterEventMutation();
 
   return (
     <div className="bg-gray-900 text-gray-200">
-      <MenuIcon/>
+      <MenuIcon />
       {/* Navbar */}
       <header className="bg-gray-800 shadow-md sticky top-0 z-10">
         <nav className="container mx-auto flex justify-between items-center py-4 px-6">
-          <h1 className="text-3xl font-extrabold text-yellow-400 animate-pulse">{club?.clubName}</h1>
+          <h1 className="text-3xl font-extrabold text-yellow-400 animate-pulse">
+            {club?.clubName}
+          </h1>
           <ul className="hidden md:flex gap-6 items-center mr-20">
-            <li><a href="#features" className="hover:text-yellow-400 transition">Features</a></li>
-            <li><a href="#events" className="hover:text-yellow-400 transition">Events</a></li>
-            <li><a href="#membership" className="hover:text-yellow-400 transition">Membership</a></li>
-            <li><a href="#contact" className="hover:text-yellow-400 transition">Contact</a></li>
+            <li>
+              <a href="#features" className="hover:text-yellow-400 transition">
+                Features
+              </a>
+            </li>
+            <li>
+              <a href="#events" className="hover:text-yellow-400 transition">
+                Events
+              </a>
+            </li>
+            <li>
+              <a href="#membership" className="hover:text-yellow-400 transition">
+                Membership
+              </a>
+            </li>
+            <li>
+              <a href="#contact" className="hover:text-yellow-400 transition">
+                Contact
+              </a>
+            </li>
           </ul>
         </nav>
       </header>
@@ -128,29 +196,40 @@ const [registerEvent]=useRegisterEventMutation();
             <p className="mt-4 text-lg text-gray-300">
               Enjoy premium club experiences with top-notch events and memberships.
             </p>
-            <button className="mt-6 bg-yellow-400 text-gray-900 px-6 py-3 rounded-md font-semibold hover:bg-yellow-300 transition"
-              onClick={handleGetStarted}>
+            <button
+              className="mt-6 bg-yellow-400 text-gray-900 px-6 py-3 rounded-md font-semibold hover:bg-yellow-300 transition"
+              onClick={handleGetStarted}
+            >
               Get Started
             </button>
           </div>
-          <img src={club?.images?.[0]?.url || ""} alt="Club"
-            className="w-60 md:w-80 lg:w-[500px] max-h-[400px] mt-8 md:mt-0 rounded-lg shadow-lg" />
+          <img
+            src={club?.images?.[0]?.url || ""}
+            alt="Club"
+            className="w-60 md:w-80 lg:w-[500px] max-h-[400px] mt-8 md:mt-0 rounded-lg shadow-lg"
+          />
         </div>
       </section>
 
- {/* Features Section */}
+      {/* Features Section */}
       <section id="features" className="py-16 bg-gray-900">
         <div className="container mx-auto px-6">
-          <h3 className="text-4xl font-bold text-center mb-12 text-yellow-400">Our Features</h3>
+          <h3 className="text-4xl font-bold text-center mb-12 text-yellow-400">
+            Our Features
+          </h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             <div className="bg-gray-800 p-6 shadow-md rounded-md text-center">
               <FaCalendarAlt className="text-yellow-300 w-12 h-12 mx-auto" />
-              <h4 className="text-xl font-semibold text-yellow-300">Event Management</h4>
+              <h4 className="text-xl font-semibold text-yellow-300">
+                Event Management
+              </h4>
               <p className="text-gray-400">Plan and manage events seamlessly.</p>
             </div>
             <div className="bg-gray-800 p-6 shadow-md rounded-md text-center">
               <FaUsers className="text-yellow-300 w-12 h-12 mx-auto" />
-              <h4 className="text-xl font-semibold text-yellow-300">Membership Plans</h4>
+              <h4 className="text-xl font-semibold text-yellow-300">
+                Membership Plans
+              </h4>
               <p className="text-gray-400">Offer flexible membership options.</p>
             </div>
             <div className="bg-gray-800 p-6 shadow-md rounded-md text-center">
@@ -162,11 +241,13 @@ const [registerEvent]=useRegisterEventMutation();
         </div>
       </section>
 
-        {/* Events Section */}
-        <section id="events" className="py-16 bg-gray-800">
+      {/* Events Section */}
+      <section id="events" className="py-16 bg-gray-800">
         <div className="container mx-auto px-6">
           <div className="flex flex-col items-center">
-            <h3 className="text-4xl font-bold text-yellow-400 text-center mb-3">Upcoming Events</h3>
+            <h3 className="text-4xl font-bold text-yellow-400 text-center mb-3">
+              Upcoming Events
+            </h3>
           </div>
 
           {eventsLoading && <div className="text-center py-4">Loading events...</div>}
@@ -174,10 +255,15 @@ const [registerEvent]=useRegisterEventMutation();
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mt-8">
             {events.map((event) => (
-              <div key={event._id} className="bg-gray-700 p-6 rounded-lg shadow-lg flex justify-between items-center">
+              <div
+                key={event._id}
+                className="bg-gray-700 p-6 rounded-lg shadow-lg flex justify-between items-center"
+              >
                 <div>
                   <h4 className="font-semibold text-yellow-300">{event.eventTitle}</h4>
-                  <p className="text-gray-400">Date: {new Date(event.date).toLocaleDateString()}</p>
+                  <p className="text-gray-400">
+                    Date: {new Date(event.date).toLocaleDateString()}
+                  </p>
                 </div>
                 <button
                   onClick={() => openModal(event)}
@@ -190,20 +276,29 @@ const [registerEvent]=useRegisterEventMutation();
           </div>
         </div>
       </section>
+
       {/* Membership Section */}
       <section id="membership" className="py-16 bg-gray-800 text-white">
         <div className="container mx-auto px-6">
           <h3 className="text-3xl font-bold text-yellow-300 text-center">Membership Plans</h3>
-          {packagesLoading && <p>Loading...</p>}
-          {packagesError && <p className="text-red-500">Error fetching packages.</p>}
+          {packagesLoading && <p className="text-center">Loading...</p>}
+          {packagesError && <p className="text-center text-red-500">{errorMessage}</p>}
+          {!packagesLoading && !packagesError && packages.length === 0 && (
+            <p className="text-center text-gray-400">No packages available</p>
+          )}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-8">
             {packages.map((pkg) => (
-              <div key={pkg._id} className="bg-gray-700 text-yellow-300 p-6 rounded-md shadow-md text-center">
+              <div
+                key={pkg._id}
+                className="bg-gray-700 text-yellow-300 p-6 rounded-md shadow-md text-center"
+              >
                 {getPackageIcon(pkg.name)}
                 <h4 className="font-semibold text-xl">{pkg.name}</h4>
                 <p>${pkg.amount}/month</p>
-                <button className="mt-4 px-6 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-500 transition"
-                  onClick={() => handleJoinNow(pkg)}>
+                <button
+                  className="mt-4 px-6 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-500 transition"
+                  onClick={() => handleJoinNow(pkg)}
+                >
                   Join Now
                 </button>
               </div>
@@ -214,21 +309,35 @@ const [registerEvent]=useRegisterEventMutation();
 
       {/* Footer */}
       <footer id="contact" className="py-8 bg-gray-900 text-center">
-        <p className="text-gray-500">© 2025 <span className="text-yellow-400">ClubManager</span></p>
+        <p className="text-gray-500">
+          © 2025 <span className="text-yellow-400">ClubManager</span>
+        </p>
       </footer>
 
       {/* Modal */}
       {isModalOpen && selectedEvent && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-gray-800 p-6 rounded-lg shadow-lg w-96">
-            <h3 className="text-xl font-bold text-yellow-400 mb-4">Register for {selectedEvent.eventTitle}</h3>
-            <p className="text-gray-300">Date: {new Date(selectedEvent.date).toLocaleDateString()}</p>
-            <p className="text-gray-400 mt-2">Are you sure you want to register for this event?</p>
+            <h3 className="text-xl font-bold text-yellow-400 mb-4">
+              Register for {selectedEvent.eventTitle}
+            </h3>
+            <p className="text-gray-300">
+              Date: {new Date(selectedEvent.date).toLocaleDateString()}
+            </p>
+            <p className="text-gray-400 mt-2">
+              Are you sure you want to register for this event?
+            </p>
             <div className="mt-6 flex justify-end space-x-4">
-              <button onClick={closeModal} className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-500 transition">
+              <button
+                onClick={closeModal}
+                className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-500 transition"
+              >
                 Cancel
               </button>
-              <button onClick={handleRegister} className="px-4 py-2 bg-yellow-500 text-white rounded-md hover:bg-yellow-600 transition">
+              <button
+                onClick={handleRegister}
+                className="px-4 py-2 bg-yellow-500 text-white rounded-md hover:bg-yellow-600 transition"
+              >
                 Confirm Registration
               </button>
             </div>
